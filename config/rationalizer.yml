@@ -1,0 +1,50 @@
+configuration:
+  sourceRoot: /opt/application/config
+
+run:
+  rootDirectory: /opt/config-rationalizer/runs
+
+formats:
+  default:
+    - properties
+    - xml
+    - yaml
+
+properties:
+  extensions:
+    - .properties
+  acceptedDelimiters:
+    - ":"
+    - "="
+  candidatePlacement: appended-section
+
+xml:
+  extensions:
+    - .xml
+  schemaChangePolicy: exclude
+  unknownSchemaPolicy: exclude
+
+yaml:
+  extensions:
+    - .yml
+    - .yaml
+  existingListChangePolicy: keep-before
+  newListPathPolicy: add-after
+
+report:
+  formats:
+    - json
+    - text
+
+  redactPatterns:
+    - password
+    - passwd
+    - secret
+    - token
+    - credential
+    - apiKey
+
+logging:
+  level: INFO
+  console: true
+  file: true
