@@ -1,0 +1,2 @@
+[console_scripts]
+config-rationalizer = config_rationalizer.cli:main
