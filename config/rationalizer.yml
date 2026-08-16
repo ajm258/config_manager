@@ -48,3 +48,9 @@ logging:
   level: INFO
   console: true
   file: true
+
+files:
+  compare:
+    # Empty means recursively compare every supported file.
+    # Otherwise match by filename + extension.
+    names: []

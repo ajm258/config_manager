@@ -5,6 +5,7 @@ from .application import Application
 from .core.enums import Format
 from .core.exceptions import ConfigurationRationalizerError
 from .core.logging_config import configure_logging
+from .lifecycle.run import run_stage4
 from .properties.comparator import compare_properties
 from .properties.rationalizer import (
     rationalize_properties_directory,
@@ -111,6 +112,50 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
     )
 
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Execute the complete post-deployment rationalization run.",
+    )
+
+    run_parser.add_argument(
+        "--run-id",
+        required=True,
+    )
+
+    run_parser.add_argument(
+        "--upgrade-id",
+        required=True,
+    )
+
+    run_parser.add_argument(
+        "--profile",
+        required=True,
+    )
+
+    run_parser.add_argument(
+        "--component",
+        required=True,
+        dest="target_component",
+    )
+
+    run_parser.add_argument(
+        "--stage0-backup",
+        type=Path,
+        required=True,
+    )
+
+    run_parser.add_argument(
+        "--after",
+        type=Path,
+        required=True,
+    )
+
+    run_parser.add_argument(
+        "--run-root",
+        type=Path,
+        required=True,
+    )
+
     return parser
 
 
@@ -190,6 +235,41 @@ def main() -> int:
             print(f"Report: {args.output}")
 
             return 1 if result.status == "COMPLETED_WITH_ERRORS" else 0
+
+        if args.command == "run":
+            from ruamel.yaml import YAML
+
+            yaml = YAML(typ="safe")
+
+            with args.config.open(
+                "r",
+                encoding="utf-8",
+            ) as handle:
+                config = yaml.load(handle) or {}
+
+            configured_files = (
+                config.get("files", {}).get("compare", {}).get("names", [])
+            )
+
+            result = run_stage4(
+                run_id=args.run_id,
+                upgrade_id=args.upgrade_id,
+                profile=args.profile,
+                target_component=args.target_component,
+                stage0_backup=args.stage0_backup,
+                after_root=args.after,
+                run_root=args.run_root,
+                configured_files=configured_files,
+                audit=audit,
+            )
+
+            print(f"Run status: {result.status}")
+
+            if result.errors:
+                for error in result.errors:
+                    print(f"ERROR: {error}")
+
+            return 1 if result.status == "FAILED" else 0
 
         parser.error(f"Unsupported command: {args.command}")
 
