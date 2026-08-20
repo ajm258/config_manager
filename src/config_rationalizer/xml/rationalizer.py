@@ -1,10 +1,15 @@
 from pathlib import Path
 from shutil import copy2
 
+from lxml import etree
+
 from config_rationalizer.core.logging_config import AuditLogger
 from config_rationalizer.properties.rationalizer import FileRationalizationResult
 
-from .comparator import compare_xml_files
+from .comparator import (
+    _build_element_map,
+    compare_xml_files,
+)
 from .models import XmlChangeType, XmlSchemaStatus
 
 
@@ -103,18 +108,49 @@ def _rationalize_file(
             after_value=change.after_value,
         )
 
-    # Stage 6 does comparison only.
-    # The before configuration remains authoritative until XML
-    # rationalization rules are explicitly introduced.
     candidate_path.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
 
+    # Preserve the master file exactly when there are no changes.
     copy2(
         before_path,
         candidate_path,
     )
+
+    if comparison.changes:
+        before_tree = etree.parse(
+            str(before_path),
+            etree.XMLParser(
+                remove_blank_text=False,
+                resolve_entities=False,
+                no_network=True,
+            ),
+        )
+
+        after_tree = etree.parse(
+            str(after_path),
+            etree.XMLParser(
+                remove_blank_text=False,
+                resolve_entities=False,
+                no_network=True,
+            ),
+        )
+
+        _apply_xml_changes(
+            candidate_tree=before_tree,
+            before_tree=before_tree,
+            after_tree=after_tree,
+            comparison=comparison,
+        )
+
+        before_tree.write(
+            str(candidate_path),
+            encoding="UTF-8",
+            xml_declaration=True,
+            pretty_print=True,
+        )
 
     unchanged = 1 if not comparison.changes else 0
 
@@ -137,3 +173,87 @@ def _rationalize_file(
         updated=updated,
         unchanged=unchanged,
     )
+
+
+def _apply_xml_changes(
+    *,
+    candidate_tree: etree._ElementTree,
+    before_tree: etree._ElementTree,
+    after_tree: etree._ElementTree,
+    comparison,
+) -> None:
+    before_map = _build_element_map(
+        before_tree.getroot(),
+    )
+
+    after_map = _build_element_map(
+        after_tree.getroot(),
+    )
+
+    for change in comparison.changes:
+        candidate_map = _build_element_map(
+            candidate_tree.getroot(),
+        )
+
+        if change.change_type == XmlChangeType.ADDED:
+            after_element = after_map.get(change.path)
+
+            if after_element is None:
+                continue
+
+            parent_path = change.path.rsplit("/", 1)[0]
+
+            parent = candidate_map.get(parent_path)
+
+            if parent is None:
+                continue
+
+            parent.append(
+                etree.fromstring(
+                    etree.tostring(after_element),
+                )
+            )
+
+        elif change.change_type == XmlChangeType.REMOVED:
+            candidate_element = candidate_map.get(change.path)
+
+            if candidate_element is None:
+                continue
+
+            parent = candidate_element.getparent()
+
+            if parent is not None:
+                parent.remove(candidate_element)
+
+        elif change.change_type == XmlChangeType.VALUE_CHANGED:
+            candidate_element = candidate_map.get(change.path)
+
+            if candidate_element is not None:
+                candidate_element.text = change.before_value
+
+        elif change.change_type == XmlChangeType.ATTRIBUTE_CHANGED:
+            candidate_element = candidate_map.get(change.path)
+
+            if candidate_element is None or change.attribute is None:
+                continue
+
+            if change.before_value is None and change.after_value is not None:
+                # Attribute was added by vendor.
+                candidate_element.set(
+                    change.attribute,
+                    change.after_value,
+                )
+
+            elif change.before_value is not None and change.after_value is None:
+                # Attribute was removed by vendor.
+                candidate_element.attrib.pop(
+                    change.attribute,
+                    None,
+                )
+
+            else:
+                # Attribute value changed.
+                candidate_element.set(
+                    change.attribute,
+                    change.before_value,
+                )

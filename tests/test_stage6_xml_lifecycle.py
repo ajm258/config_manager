@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from lxml import etree
+
 from config_rationalizer.core.logging_config import configure_logging
 from config_rationalizer.lifecycle.handlers import build_default_registry
 from config_rationalizer.xml.rationalizer import _rationalize_file
@@ -63,7 +65,13 @@ def test_xml_same_schema_version_is_processed(tmp_path):
     assert result.added == 0
     assert result.removed == 0
     assert candidate.exists()
-    assert candidate.read_text(encoding="utf-8") == content_before
+
+    candidate_tree = etree.parse(str(candidate))
+
+    port = candidate_tree.find("./server/port")
+
+    assert port is not None
+    assert port.text == "8080"
 
 
 def test_xml_without_schema_is_processed(tmp_path):
@@ -106,7 +114,16 @@ def test_xml_without_schema_is_processed(tmp_path):
 
     assert result.status == "COMPLETED"
     assert result.updated == 1
+    assert result.added == 0
+    assert result.removed == 0
     assert candidate.exists()
+
+    candidate_tree = etree.parse(str(candidate))
+
+    port = candidate_tree.find("./server/port")
+
+    assert port is not None
+    assert port.text == "8080"
 
 
 def test_xml_schema_version_mismatch_is_skipped(tmp_path):
@@ -234,3 +251,20 @@ def test_xml_added_removed_and_updated_changes_are_counted(tmp_path):
     assert result.added == 1
     assert result.removed == 1
     assert candidate.exists()
+
+    candidate_tree = etree.parse(str(candidate))
+
+    port = candidate_tree.find("./server/port")
+    host = candidate_tree.find("./server/host")
+    protocol = candidate_tree.find("./server/protocol")
+
+    # Vendor changed the value, so revert to master.
+    assert port is not None
+    assert port.text == "8080"
+
+    # Vendor removed the node, so it remains removed.
+    assert host is None
+
+    # Vendor added the node, so it is retained.
+    assert protocol is not None
+    assert protocol.text == "https"
