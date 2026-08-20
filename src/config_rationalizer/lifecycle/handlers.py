@@ -2,10 +2,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+import config_rationalizer.xml.rationalizer
 from config_rationalizer.core.logging_config import AuditLogger
 from config_rationalizer.properties.rationalizer import (
     FileRationalizationResult,
     _rationalize_file,
+)
+from config_rationalizer.xml.rationalizer import (
+    _rationalize_file as _rationalize_xml_file,
 )
 
 
@@ -39,6 +43,14 @@ def build_default_registry() -> HandlerRegistry:
             name="properties",
             extensions=(".properties",),
             rationalize=_rationalize_file,
+        )
+    )
+
+    registry.register(
+        FormatHandler(
+            name="xml",
+            extensions=(".xml",),
+            rationalize=_rationalize_xml_file,
         )
     )
 

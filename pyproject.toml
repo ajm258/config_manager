@@ -38,3 +38,8 @@ source = ["config_rationalizer"]
 
 [tool.coverage.report]
 show_missing = true
+
+dependencies = [
+    # existing dependencies...
+    "lxml>=5.0",
+]
