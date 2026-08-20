@@ -59,6 +59,9 @@ def _render_change(change: ChangeRecord) -> list[str]:
     if change.review_required:
         lines.append("        Review:    REQUIRED")
 
+    if change.severity.value != "INFORMATIONAL":
+        lines.append(f"        Severity:  {change.severity.value}")
+
     if change.message:
         lines.append(f"        Message:   {change.message}")
 
@@ -150,6 +153,15 @@ def render_report(
 
             for error in file_result.errors:
                 lines.append(f"    - {error}")
+
+        lines.append("")
+
+        if result.unsupported_files:
+            lines.append("UNSUPPORTED FILES")
+            lines.append("-----------------")
+
+            for path in result.unsupported_files:
+                lines.append(f"  - {path}")
 
         lines.append("")
 

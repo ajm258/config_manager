@@ -4,10 +4,10 @@ from shutil import copy2
 
 from config_rationalizer.core.enums import ChangeType
 from config_rationalizer.core.logging_config import AuditLogger
+from config_rationalizer.core.models import ChangeRecord
 
 from .comparator import PropertiesComparisonResult, compare_properties
 from .parser import PropertyEntry, parse_properties
-
 
 GENERATED_MARKER = (
     "# ============================================================\n"
@@ -24,6 +24,7 @@ class FileRationalizationResult:
     removed: int = 0
     updated: int = 0
     unchanged: int = 0
+    changes: list[ChangeRecord] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
@@ -183,6 +184,7 @@ def _rationalize_file(
         removed=comparison.removed_count,
         updated=comparison.changed_count,
         unchanged=unchanged,
+        changes=comparison.changes,
     )
 
 

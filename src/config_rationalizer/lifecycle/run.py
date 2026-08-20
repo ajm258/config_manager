@@ -5,6 +5,7 @@ from pathlib import Path
 from config_rationalizer.core.enums import RunStatus
 from config_rationalizer.core.exceptions import ConfigurationError
 from config_rationalizer.core.logging_config import AuditLogger
+from config_rationalizer.core.models import ChangeRecord
 from config_rationalizer.lifecycle.discovery import (
     DiscoveredFile,
     discover_files,
@@ -89,6 +90,7 @@ class Stage4Result:
     skipped_files: list[str]
     unsupported_files: list[str]
     errors: list[str]
+    changes: list[ChangeRecord] = field(default_factory=list)
 
     @property
     def status(self) -> str:
@@ -162,6 +164,7 @@ def run_stage4(
     registry: HandlerRegistry | None = None,
 ) -> Stage4Result:
     registry = registry or build_default_registry()
+    from config_rationalizer.reporting.report import write_report
 
     run = Stage4Run(
         run_id=run_id,
@@ -376,15 +379,34 @@ def run_stage4(
                 candidate_root=str(run.candidate_root),
             )
 
-        return Stage4Result(
-            run=run,
-            files=results,
-            skipped_files=[
-                str(item.relative_path) for item in skipped_before + skipped_after
-            ],
-            unsupported_files=[],
-            errors=errors,
-        )
+            result = Stage4Result(
+                run=run,
+                files=results,
+                skipped_files=[
+                    str(item.relative_path) for item in skipped_before + skipped_after
+                ],
+                unsupported_files=[],
+                errors=errors,
+            )
+
+            changes = [
+                change for file_result in result.files for change in file_result.changes
+            ]
+
+            report_path = run.reports_root / "report.txt"
+
+            write_report(
+                result=result,
+                report_path=report_path,
+                changes=changes,
+            )
+
+            audit.event(
+                "RUN_REPORT_GENERATED",
+                file=str(report_path),
+            )
+
+            return result
 
     except ConfigurationError as exc:
         message = str(exc)

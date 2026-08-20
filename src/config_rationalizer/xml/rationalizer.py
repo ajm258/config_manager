@@ -172,6 +172,7 @@ def _rationalize_file(
         removed=removed,
         updated=updated,
         unchanged=unchanged,
+        changes=comparison.changes,
     )
 
 
