@@ -40,3 +40,12 @@ class XmlComparisonResult:
     before_schema: XmlSchemaInfo | None
     after_schema: XmlSchemaInfo | None
     changes: list[XmlElementChange]
+
+
+class XmlSchemaStatus(str, Enum):
+    VERSION_MATCH = "VERSION_MATCH"
+    VERSION_CHANGED = "VERSION_CHANGED"
+    NO_VERSION = "NO_VERSION"
+    VERSION_MISSING_ON_ONE_SIDE = "VERSION_MISSING_ON_ONE_SIDE"
+    UNKNOWN_SCHEMA = "UNKNOWN_SCHEMA"
+    PARSE_ERROR = "PARSE_ERROR"

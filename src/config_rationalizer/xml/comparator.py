@@ -7,6 +7,7 @@ from config_rationalizer.xml.models import (
     XmlChangeType,
     XmlComparisonResult,
     XmlElementChange,
+    XmlSchemaInfo,
     XmlSchemaStatus,
 )
 from config_rationalizer.xml.parser import (
@@ -170,27 +171,45 @@ def compare_xml_files(
     before_version = before_schema.version
     after_version = after_schema.version
 
-    if before_version is not None and after_version is not None:
-        if before_version != after_version:
-            return XmlComparisonResult(
-                schema_status=(XmlSchemaStatus.VERSION_CHANGED),
-                before_schema=before_schema,
-                after_schema=after_schema,
-                changes=[],
-            )
+    before_has_schema = before_schema.schema_reference is not None
+    after_has_schema = after_schema.schema_reference is not None
 
-        schema_status = XmlSchemaStatus.VERSION_MATCH
-
-    elif before_version is None and after_version is None:
+    # No schema reference on either side.
+    if not before_has_schema and not after_has_schema:
         schema_status = XmlSchemaStatus.NO_VERSION
 
-    else:
+    # A schema reference exists, but its identity/version
+    # cannot be determined reliably.
+    elif (before_has_schema and before_version is None) or (
+        after_has_schema and after_version is None
+    ):
         return XmlComparisonResult(
-            schema_status=(XmlSchemaStatus.VERSION_MISSING_ON_ONE_SIDE),
+            schema_status=XmlSchemaStatus.UNKNOWN_SCHEMA,
             before_schema=before_schema,
             after_schema=after_schema,
             changes=[],
         )
+
+    # A schema is present on only one side.
+    elif before_has_schema != after_has_schema:
+        return XmlComparisonResult(
+            schema_status=XmlSchemaStatus.VERSION_MISSING_ON_ONE_SIDE,
+            before_schema=before_schema,
+            after_schema=after_schema,
+            changes=[],
+        )
+
+    # Both sides have a known schema identity.
+    elif before_version != after_version:
+        return XmlComparisonResult(
+            schema_status=XmlSchemaStatus.VERSION_CHANGED,
+            before_schema=before_schema,
+            after_schema=after_schema,
+            changes=[],
+        )
+
+    else:
+        schema_status = XmlSchemaStatus.VERSION_MATCH
 
     before_map = _build_element_map(before_tree.getroot())
 

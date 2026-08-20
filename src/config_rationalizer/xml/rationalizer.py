@@ -39,32 +39,37 @@ def _rationalize_file(
             errors=[message],
         )
 
-    if comparison.schema_status in {
-        XmlSchemaStatus.VERSION_CHANGED,
-        XmlSchemaStatus.VERSION_MISSING_ON_ONE_SIDE,
-    }:
-        before_version = (
-            comparison.before_schema.version if comparison.before_schema else None
-        )
-
-        after_version = (
-            comparison.after_schema.version if comparison.after_schema else None
-        )
-
+    if comparison.schema_status == XmlSchemaStatus.VERSION_CHANGED:
         message = (
-            f"XML comparison skipped: "
-            f"schema status={comparison.schema_status.value}, "
-            f"before_version={before_version}, "
-            f"after_version={after_version}"
+            f"Skipped XML comparison for {relative_path}: "
+            f"current schema {comparison.before_schema.version} and "
+            f"new schema {comparison.after_schema.version} are different. "
+            "The file requires manual review."
         )
 
+    elif comparison.schema_status == XmlSchemaStatus.UNKNOWN_SCHEMA:
+        message = (
+            f"Skipped XML comparison for {relative_path}: "
+            "schema identity could not be determined reliably. "
+            "The file requires manual review."
+        )
+
+    elif comparison.schema_status == XmlSchemaStatus.VERSION_MISSING_ON_ONE_SIDE:
+        message = (
+            f"Skipped XML comparison for {relative_path}: "
+            "schema is present on only one side. "
+            "The file requires manual review."
+        )
+
+    else:
+        message = None
+
+    if message is not None:
         audit.event(
             "XML_FILE_COMPARISON_SKIPPED",
             level=30,
             file=str(relative_path),
             schema_status=comparison.schema_status.value,
-            before_version=before_version,
-            after_version=after_version,
             reason=message,
         )
 

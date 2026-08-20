@@ -881,3 +881,69 @@ def test_unchanged_xml_has_no_changes(tmp_path):
 
     assert result.schema_status == XmlSchemaStatus.NO_VERSION
     assert result.changes == []
+
+
+def test_unknown_schema_is_excluded(tmp_path):
+    before = tmp_path / "before.xml"
+    after = tmp_path / "after.xml"
+
+    write_xml(
+        before,
+        """<?xml version="1.0" encoding="UTF-8"?>
+<configuration
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://example.com/config example-config.xsd">
+    <server>
+        <port>8080</port>
+    </server>
+</configuration>
+""",
+    )
+
+    write_xml(
+        after,
+        """<?xml version="1.0" encoding="UTF-8"?>
+<configuration
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://example.com/config example-config.xsd">
+    <server>
+        <port>9090</port>
+    </server>
+</configuration>
+""",
+    )
+
+    result = compare_xml_files(before, after)
+
+    assert result.schema_status == XmlSchemaStatus.UNKNOWN_SCHEMA
+    assert result.changes == []
+
+
+def test_unknown_schema_on_one_side_is_excluded(tmp_path):
+    before = tmp_path / "before.xml"
+    after = tmp_path / "after.xml"
+
+    write_xml(
+        before,
+        """<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <server/>
+</configuration>
+""",
+    )
+
+    write_xml(
+        after,
+        """<?xml version="1.0" encoding="UTF-8"?>
+<configuration
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://example.com/config example-config.xsd">
+    <server/>
+</configuration>
+""",
+    )
+
+    result = compare_xml_files(before, after)
+
+    assert result.schema_status == XmlSchemaStatus.UNKNOWN_SCHEMA
+    assert result.changes == []

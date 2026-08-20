@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 from lxml import etree
 
 from config_rationalizer.xml.models import XmlSchemaInfo
-
+import re
 
 XSI_NAMESPACE = "http://www.w3.org/2001/XMLSchema-instance"
 
@@ -55,8 +55,6 @@ def _extract_version(
 
     filename = Path(urlparse(schema_reference).path).name
 
-    # Example:
-    # hazelcast-config-5.3.xsd
     if not filename.endswith(".xsd"):
         return None
 
@@ -69,7 +67,10 @@ def _extract_version(
 
     version = parts[1].strip()
 
-    return version or None
+    if not re.fullmatch(r"\d+(?:\.\d+)*", version):
+        return None
+
+    return version
 
 
 def parse_schema_info(
@@ -97,3 +98,9 @@ def parse_xml_with_schema(
     tree = parse_xml(path)
 
     return tree, parse_schema_info(tree)
+
+
+def has_schema_reference(
+    schema_info: XmlSchemaInfo,
+) -> bool:
+    return schema_info.schema_reference is not None
